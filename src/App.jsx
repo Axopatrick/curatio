@@ -1176,30 +1176,30 @@ Structure ta réponse en 3 points concis :
                 CURATIO
               </h1>
 
-              <div className="flex items-center gap-1.5 bg-stone-200/80 p-1 rounded-xl border border-stone-300">
-                <button
-                  onClick={handleExportData}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-stone-800 hover:bg-stone-50 shadow-sm transition-all"
-                  title="Télécharger une sauvegarde JSON de vos notes et listes"
-                >
-                  <Save className="w-3.5 h-3.5 text-amber-700" />
-                  <span>Sauvegarder</span>
-                </button>
-                <label
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-stone-800 hover:bg-stone-50 shadow-sm transition-all cursor-pointer"
-                  title="Restaurer vos données à partir d'un fichier de sauvegarde"
-                >
-                  <Upload className="w-3.5 h-3.5 text-emerald-700" />
-                  <span>Restaurer</span>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".json"
-                    onChange={handleImportData}
-                    className="hidden"
-                  />
-                </label>
-              </div>
+             <div className="flex items-center gap-1.5 bg-stone-200/80 p-1 rounded-xl border border-stone-300">
+  <button
+    onClick={handleExportData}
+    className="flex items-center justify-center p-2 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold bg-white text-stone-800 hover:bg-stone-50 shadow-sm transition-all"
+    title="Télécharger une sauvegarde JSON de vos notes et listes"
+  >
+    <Save className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-amber-700 shrink-0" />
+    <span className="hidden sm:inline ml-1.5">Sauvegarder</span>
+  </button>
+  <label
+    className="flex items-center justify-center p-2 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold bg-white text-stone-800 hover:bg-stone-50 shadow-sm transition-all cursor-pointer"
+    title="Restaurer vos données à partir d'un fichier de sauvegarde"
+  >
+    <Upload className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-emerald-700 shrink-0" />
+    <span className="hidden sm:inline ml-1.5">Restaurer</span>
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept=".json"
+      onChange={handleImportData}
+      className="hidden"
+    />
+  </label>
+</div>
             </div>
 
             {/* Navigation Principale (3 Onglets) */}
