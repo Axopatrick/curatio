@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Film, Tv, BookOpen, Gamepad2, Disc, Video, 
   Bookmark, CheckCircle2, XCircle, Star, Sparkles, 
-  RotateCcw, Filter, Compass, Trash2, ArrowUpRight, 
+  Filter, Compass, Trash2, ArrowUpRight, 
   SlidersHorizontal, Award, HeartHandshake, Eye, Plus, Info,
   Wand2, BrainCircuit, Loader2, MessageSquareQuote, Send, X, Hash, 
   Download, Upload, Save
@@ -579,7 +579,7 @@ async function fetchWorkArtwork(work) {
 
     try {
       const itunesBookUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(
-        `${work.title} ${cleanCreator}`
+        `${work.title}${cleanCreator}`
       )}&entity=ebook&limit=2`;
       const res = await fetch(itunesBookUrl);
       const data = await res.json();
@@ -800,7 +800,7 @@ export default function App() {
         appName: "CURATIO",
         exportDate: new Date().toISOString(),
         userState,
-        works: works.filter(w => !INITIAL_WORKS.some(iw => iw.id === w.id)) // Sauvegarder uniquement les œuvres personnalisées/générées
+        works: works.filter(w => !INITIAL_WORKS.some(iw => iw.id === w.id))
       };
       
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
@@ -1082,21 +1082,6 @@ Structure ta réponse en 3 points concis :
     showToast(`« ${work.title} » replacé dans les découvertes`);
   };
 
-  const handleResetDemo = () => {
-    const defaultData = {
-      'cin-1': { status: 'consumed', rating: 5, updatedAt: Date.now() - 300000 },
-      'jeu-1': { status: 'consumed', rating: 5, updatedAt: Date.now() - 200000 },
-      'liv-2': { status: 'consumed', rating: 4, updatedAt: Date.now() - 100000 },
-      'ser-1': { status: 'interested', rating: 0, updatedAt: Date.now() - 50000 },
-      'mus-1': { status: 'interested', rating: 0, updatedAt: Date.now() - 20000 },
-    };
-    setWorks(INITIAL_WORKS);
-    setUserState(defaultData);
-    setShowDismissed(false);
-    localStorage.removeItem('almanach_custom_works_v1');
-    showToast('Données de démonstration réinitialisées');
-  };
-
   const counts = useMemo(() => {
     let rec = 0, watch = 0, cons = 0, dismissed = 0;
     works.forEach((w) => {
@@ -1180,46 +1165,44 @@ Structure ta réponse en 3 points concis :
         }
       `}</style>
 
-      {/* BARRE SUPÉRIEURE ÉDITORIALE & SAUVEGARDE */}
+      {/* BARRE SUPÉRIEURE ÉDITORIALE & SAUVEGARDE / RESTAURATION */}
       <header className="border-b border-stone-300 bg-[#FAF7F2]/95 backdrop-blur-md sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="py-3.5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             
-            {/* Logo CURATIO & Boutons de Sauvegarde */}
+            {/* Logo CURATIO & Boutons de Sauvegarde sécurisés */}
             <div className="flex items-center justify-between md:justify-start gap-4">
               <h1 className="text-2xl sm:text-3xl font-curatio-logo font-extrabold uppercase text-stone-950 leading-none tracking-tight">
                 CURATIO
               </h1>
 
-              {/* Boutons Export / Import de sauvegarde */}
               <div className="flex items-center gap-1.5 bg-stone-200/80 p-1 rounded-xl border border-stone-300">
                 <button
                   onClick={handleExportData}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-800 hover:bg-stone-50 shadow-sm transition-all"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-stone-800 hover:bg-stone-50 shadow-sm transition-all"
                   title="Télécharger une sauvegarde JSON de vos notes et listes"
                 >
-                  <Download className="w-3.5 h-3.5 text-amber-700" />
-                  <span className="hidden sm:inline">Sauvegarder</span>
+                  <Save className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Sauvegarder</span>
                 </button>
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-800 hover:bg-stone-50 shadow-sm transition-all"
-                  title="Restaurer une sauvegarde JSON précédente"
+                <label
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-stone-800 hover:bg-stone-50 shadow-sm transition-all cursor-pointer"
+                  title="Restaurer vos données à partir d'un fichier de sauvegarde"
                 >
                   <Upload className="w-3.5 h-3.5 text-emerald-700" />
-                  <span className="hidden sm:inline">Restaurer</span>
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".json"
-                  onChange={handleImportData}
-                  className="hidden"
-                />
+                  <span>Restaurer</span>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".json"
+                    onChange={handleImportData}
+                    className="hidden"
+                  />
+                </label>
               </div>
             </div>
 
-            {/* Navigation Principale (3 Onglets) & Reset */}
+            {/* Navigation Principale (3 Onglets) */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 self-start md:self-auto w-full md:w-auto">
               <nav className="flex bg-stone-200/75 p-1.5 rounded-xl border border-stone-300/80 w-full md:w-auto overflow-x-auto">
                 <button
@@ -1273,15 +1256,6 @@ Structure ta réponse en 3 points concis :
                   </span>
                 </button>
               </nav>
-
-              <button
-                onClick={handleResetDemo}
-                className="flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-900 transition-colors font-medium px-2 py-1 self-end sm:self-auto shrink-0"
-                title="Réinitialiser la sélection de démonstration"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span className="hidden xl:inline">Réinitialiser</span>
-              </button>
             </div>
           </div>
         </div>
@@ -1550,9 +1524,9 @@ Structure ta réponse en 3 points concis :
                         <Award className="w-3.5 h-3.5 text-amber-700 shrink-0" />
                         <span className="truncate">{work.criticSource}</span>
                       </span>
-                    </div>
+                  </div>
 
-                    <div className="p-5">
+                  <div className="p-5">
                       {work.isAiGenerated && (
                         <div className="mb-2.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-purple-100 text-purple-900 border border-purple-300">
                           <Wand2 className="w-3 h-3 text-purple-700" />
@@ -1574,173 +1548,173 @@ Structure ta réponse en 3 points concis :
                         </div>
                       )}
 
-                      <WorkVisualBanner
-                        work={work}
-                        catMeta={catMeta}
-                        onOpenLightbox={(data) => setLightboxData(data)}
-                      />
+                    <WorkVisualBanner
+                      work={work}
+                      catMeta={catMeta}
+                      onOpenLightbox={(data) => setLightboxData(data)}
+                    />
 
-                      <div className="flex items-baseline justify-between gap-2">
-                        <h3 className="text-xl font-sans font-bold tracking-tight text-stone-900 leading-snug group-hover:text-amber-900 transition-colors">
-                          {work.title}
-                        </h3>
-                        <span className="text-xs font-mono text-stone-500 shrink-0">{work.year}</span>
-                      </div>
-
-                      <p className="text-xs font-semibold uppercase tracking-wider text-stone-500 mt-1">
-                        {work.creator}
-                      </p>
-
-                      <p className="text-sm text-stone-700 mt-3.5 leading-relaxed">
-                        {work.pitch}
-                      </p>
-
-                      <div className="flex flex-wrap gap-1.5 mt-4">
-                        {work.tags.map((tag) => {
-                          const isMatched = work.affinity.matchedTags.includes(tag) && activeTab === 'recommendations';
-                          const isSelected = selectedTag === tag;
-                          return (
-                            <button
-                              key={tag}
-                              type="button"
-                              onClick={() => handleTagClick(tag)}
-                              className={`text-[11px] px-2.5 py-1 rounded-full font-medium transition-all flex items-center gap-0.5 cursor-pointer ${
-                                isSelected
-                                  ? 'bg-stone-900 text-amber-300 border border-stone-900 shadow-sm scale-105 font-bold'
-                                  : isMatched
-                                  ? 'bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200'
-                                  : 'bg-stone-100 text-stone-600 border border-stone-200/60 hover:bg-stone-200 hover:text-stone-900'
-                              }`}
-                              title={`Filtrer par #${tag}`}
-                            >
-                              <span className="opacity-60">#</span>
-                              <span>{tag}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      <div className="mt-4 pt-3 border-t border-stone-100 flex justify-end">
-                        <button
-                          onClick={() => handleOpenDeepDive(work)}
-                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-800 hover:text-amber-950 bg-amber-50/70 hover:bg-amber-100/80 px-3 py-1.5 rounded-lg border border-amber-200/70 transition-colors"
-                        >
-                          <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                          <span>Éclairage critique</span>
-                        </button>
-                      </div>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <h3 className="text-xl font-sans font-bold tracking-tight text-stone-900 leading-snug group-hover:text-amber-900 transition-colors">
+                        {work.title}
+                      </h3>
+                      <span className="text-xs font-mono text-stone-500 shrink-0">{work.year}</span>
                     </div>
+
+                    <p className="text-xs font-semibold uppercase tracking-wider text-stone-500 mt-1">
+                      {work.creator}
+                    </p>
+
+                    <p className="text-sm text-stone-700 mt-3.5 leading-relaxed">
+                      {work.pitch}
+                    </p>
+
+                    <div className="flex flex-wrap gap-1.5 mt-4">
+                      {work.tags.map((tag) => {
+                        const isMatched = work.affinity.matchedTags.includes(tag) && activeTab === 'recommendations';
+                        const isSelected = selectedTag === tag;
+                        return (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() => handleTagClick(tag)}
+                            className={`text-[11px] px-2.5 py-1 rounded-full font-medium transition-all flex items-center gap-0.5 cursor-pointer ${
+                              isSelected
+                                ? 'bg-stone-900 text-amber-300 border border-stone-900 shadow-sm scale-105 font-bold'
+                              : isMatched
+                              ? 'bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200'
+                              : 'bg-stone-100 text-stone-600 border border-stone-200/60 hover:bg-stone-200 hover:text-stone-900'
+                          }`}
+                          title={`Filtrer par #${tag}`}
+                        >
+                          <span className="opacity-60">#</span>
+                          <span>{tag}</span>
+                        </button>
+                      );
+                    })}
                   </div>
 
-                  <div className="px-5 py-3.5 bg-stone-50/90 border-t border-stone-200/80">
-                    {activeTab === 'recommendations' && !showDismissed && (
-                      <div className="grid grid-cols-3 gap-2">
-                        <button
-                          onClick={() => handleMarkInterested(work)}
-                          className="flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-stone-900 text-white hover:bg-stone-800 text-xs font-semibold transition-all shadow-sm"
-                          title="Ajouter à Ma Liste"
-                        >
-                          <Bookmark className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-                          <span>Ça m'intéresse</span>
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            setRatingModalWork(work);
-                            setHoverRating(0);
-                          }}
-                          className="flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-emerald-50 text-emerald-900 border border-emerald-200 hover:bg-emerald-100 text-xs font-semibold transition-all"
-                          title="Marquer comme déjà vu, lu ou écouté et noter"
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-                          <span>Déjà vu/lu</span>
-                        </button>
-
-                        <button
-                          onClick={() => handleMarkNotInterested(work)}
-                          className="flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-white text-stone-600 border border-stone-200 hover:bg-rose-50 hover:text-rose-800 hover:border-rose-200 text-xs font-medium transition-all"
-                          title="Écarter des recommandations"
-                        >
-                          <XCircle className="w-3.5 h-3.5 shrink-0" />
-                          <span>Pas intéressé</span>
-                        </button>
-                      </div>
-                    )}
-
-                    {activeTab === 'recommendations' && showDismissed && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-stone-500 italic">Œuvre écartée</span>
-                        <button
-                          onClick={() => handleRemoveFromState(work)}
-                          className="px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs font-medium hover:bg-stone-800 flex items-center gap-1.5"
-                        >
-                          <RotateCcw className="w-3.5 h-3.5" />
-                          <span>Restaurer dans le flux</span>
-                        </button>
-                      </div>
-                    )}
-
-                    {activeTab === 'watchlist' && (
-                      <div className="flex items-center justify-between gap-2">
-                        <button
-                          onClick={() => {
-                            setRatingModalWork(work);
-                            setHoverRating(0);
-                          }}
-                          className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-emerald-800 text-white hover:bg-emerald-700 text-xs font-semibold transition-all shadow-sm"
-                        >
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span>Marquer comme vu / lu / écouté & Noter</span>
-                        </button>
-                        <button
-                          onClick={() => handleRemoveFromState(work)}
-                          className="p-2 rounded-xl bg-white text-stone-500 border border-stone-200 hover:text-rose-700 hover:bg-rose-50 transition-colors"
-                          title="Retirer de Ma Liste"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-
-                    {activeTab === 'consumed' && (
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs font-medium text-stone-600 mr-1.5">Votre note :</span>
-                          {[1, 2, 3, 4, 5].map((star) => {
-                            const currentRating = work.state?.rating || 0;
-                            return (
-                              <button
-                                key={star}
-                                onClick={() => handleUpdateRatingDirect(work, star)}
-                                className="p-1 hover:scale-110 transition-transform"
-                                title={`Noter ${star} étoile${star > 1 ? 's' : ''}`}
-                              >
-                                <Star
-                                  className={`w-5 h-5 ${
-                                    star <= currentRating
-                                      ? 'fill-amber-400 text-amber-500'
-                                      : 'text-stone-300 hover:text-amber-300'
-                                  }`}
-                                />
-                              </button>
-                            );
-                          })}
-                        </div>
-
-                        <button
-                          onClick={() => handleRemoveFromState(work)}
-                          className="text-xs text-stone-400 hover:text-rose-700 p-1.5 rounded-lg transition-colors"
-                          title="Supprimer de l'historique"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
+                  <div className="mt-4 pt-3 border-t border-stone-100 flex justify-end">
+                    <button
+                      onClick={() => handleOpenDeepDive(work)}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-800 hover:text-amber-950 bg-amber-50/70 hover:bg-amber-100/80 px-3 py-1.5 rounded-lg border border-amber-200/70 transition-colors"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Éclairage critique</span>
+                    </button>
                   </div>
-                </article>
-              );
-            })}
-          </div>
+                </div>
+              </div>
+
+              <div className="px-5 py-3.5 bg-stone-50/90 border-t border-stone-200/80">
+                {activeTab === 'recommendations' && !showDismissed && (
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      onClick={() => handleMarkInterested(work)}
+                      className="flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-stone-900 text-white hover:bg-stone-800 text-xs font-semibold transition-all shadow-sm"
+                      title="Ajouter à Ma Liste"
+                    >
+                      <Bookmark className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                      <span>Ça m'intéresse</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setRatingModalWork(work);
+                        setHoverRating(0);
+                      }}
+                      className="flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-emerald-50 text-emerald-900 border border-emerald-200 hover:bg-emerald-100 text-xs font-semibold transition-all"
+                      title="Marquer comme déjà vu, lu ou écouté et noter"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                      <span>Déjà vu/lu</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleMarkNotInterested(work)}
+                      className="flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-white text-stone-600 border border-stone-200 hover:bg-rose-50 hover:text-rose-800 hover:border-rose-200 text-xs font-medium transition-all"
+                      title="Écarter des recommandations"
+                    >
+                      <XCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>Pas intéressé</span>
+                    </button>
+                  </div>
+                )}
+
+                {activeTab === 'recommendations' && showDismissed && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-stone-500 italic">Œuvre écartée</span>
+                    <button
+                      onClick={() => handleRemoveFromState(work)}
+                      className="px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs font-medium hover:bg-stone-800 flex items-center gap-1.5"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Restaurer dans le flux</span>
+                    </button>
+                  </div>
+                )}
+
+                {activeTab === 'watchlist' && (
+                  <div className="flex items-center justify-between gap-2">
+                    <button
+                      onClick={() => {
+                        setRatingModalWork(work);
+                        setHoverRating(0);
+                      }}
+                      className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-emerald-800 text-white hover:bg-emerald-700 text-xs font-semibold transition-all shadow-sm"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Marquer comme vu / lu / écouté & Noter</span>
+                    </button>
+                    <button
+                      onClick={() => handleRemoveFromState(work)}
+                      className="p-2 rounded-xl bg-white text-stone-500 border border-stone-200 hover:text-rose-700 hover:bg-rose-50 transition-colors"
+                      title="Retirer de Ma Liste"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+
+                {activeTab === 'consumed' && (
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs font-medium text-stone-600 mr-1.5">Votre note :</span>
+                      {[1, 2, 3, 4, 5].map((star) => {
+                        const currentRating = work.state?.rating || 0;
+                        return (
+                          <button
+                            key={star}
+                            onClick={() => handleUpdateRatingDirect(work, star)}
+                            className="p-1 hover:scale-110 transition-transform"
+                            title={`Noter ${star} étoile${star > 1 ? 's' : ''}`}
+                          >
+                            <Star
+                              className={`w-5 h-5 ${
+                                star <= currentRating
+                                  ? 'fill-amber-400 text-amber-500'
+                                  : 'text-stone-300 hover:text-amber-300'
+                              }`}
+                            />
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <button
+                      onClick={() => handleRemoveFromState(work)}
+                      className="text-xs text-stone-400 hover:text-rose-700 p-1.5 rounded-lg transition-colors"
+                      title="Supprimer de l'historique"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              </article>
+            );
+          })}
+        </div>
         )}
       </main>
 
@@ -1906,8 +1880,8 @@ Structure ta réponse en 3 points concis :
                 {lightboxData.work.creator} • {lightboxData.work.criticSource}
               </p>
             </div>
-          </div>
         </div>
+      </div>
       )}
 
       {/* NOTIFICATION TOAST */}
@@ -1927,6 +1901,6 @@ Structure ta réponse en 3 points concis :
           )}
         </div>
       )}
-    </div>
+  </div>
   );
 }
