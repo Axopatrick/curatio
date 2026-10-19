@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
-  Film, Tv, BookOpen, Gamepad2, Disc, Youtube, 
+  Film, Tv, BookOpen, Gamepad2, Disc, Video, 
   Bookmark, CheckCircle2, XCircle, Star, Sparkles, 
   RotateCcw, Filter, Compass, Trash2, ArrowUpRight, 
   SlidersHorizontal, Award, HeartHandshake, Eye, Plus, Info,
@@ -48,7 +48,7 @@ const CATEGORIES = [
   { id: 'livres', label: 'Livres', icon: BookOpen, color: 'bg-emerald-900 text-emerald-50', badge: 'bg-emerald-100 text-emerald-900 border-emerald-200', accent: 'border-emerald-800' },
   { id: 'jeux', label: 'Jeux vidéo', icon: Gamepad2, color: 'bg-indigo-900 text-indigo-50', badge: 'bg-indigo-100 text-indigo-900 border-indigo-200', accent: 'border-indigo-800' },
   { id: 'musique', label: 'Musique', icon: Disc, color: 'bg-purple-900 text-purple-50', badge: 'bg-purple-100 text-purple-900 border-purple-200', accent: 'border-purple-800' },
-  { id: 'youtube', label: 'YouTube', icon: Youtube, color: 'bg-red-800 text-red-50', badge: 'bg-red-100 text-red-900 border-red-200', accent: 'border-red-800' },
+  { id: 'youtube', label: 'YouTube', icon: Video, color: 'bg-red-800 text-red-50', badge: 'bg-red-100 text-red-900 border-red-200', accent: 'border-red-800' },
 ];
 
 // --- BASE DE DONNÉES CURATÉE (36 ŒUVRES POINTUES) ---
