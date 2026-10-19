@@ -5,15 +5,16 @@ import {
   Filter, Compass, Trash2, ArrowUpRight, 
   SlidersHorizontal, Award, HeartHandshake, Eye, Plus, Info,
   Wand2, BrainCircuit, Loader2, MessageSquareQuote, Send, X, Hash, 
-  Download, Upload, Save
+  Download, Upload, Save, Key, ShieldCheck
 } from 'lucide-react';
 
-// --- CONFIGURATION API GEMINI ---
-const apiKey = "AIzaSyDHjZRivgjTAawmDU_3lz9S-omHKDxXwsU";
 const GEMINI_MODEL = "gemini-3-flash-preview";
 
-async function callGeminiAPI(payload, maxRetries = 4) {
-  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+async function callGeminiAPI(payload, userApiKey, maxRetries = 4) {
+  if (!userApiKey) {
+    throw new Error("Clé API Gemini manquante. Veuillez configurer votre clé dans l'application.");
+  }
+  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${userApiKey}`;
   let delay = 1000;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -53,7 +54,6 @@ const CATEGORIES = [
 
 // --- BASE DE DONNÉES CURATÉE (36 ŒUVRES POINTUES) ---
 const INITIAL_WORKS = [
-  // CINÉMA (6)
   {
     id: 'cin-1',
     title: 'Memories of Murder',
@@ -120,8 +120,6 @@ const INITIAL_WORKS = [
     pitch: "Une série de meurtres inexplicables secoue Tokyo : chaque coupable avoue immédiatement mais ignore ses propres motifs. L'inspecteur Takabe croise alors la route d'un jeune amnésique hypnotiseur.",
     tags: ['Thriller atmosphérique', 'Enquête', 'Psychologique', 'Mystère', 'Japon']
   },
-
-  // SÉRIES (6)
   {
     id: 'ser-1',
     title: 'Severance',
@@ -188,8 +186,6 @@ const INITIAL_WORKS = [
     pitch: "Le récit minutieux, heure par heure, de la catastrophe nucléaire de 1986 et du mensonge d'État soviétique. Filmé comme un film d'horreur invisible où la science affronte la bureaucratie.",
     tags: ['Histoire', 'Sciences', 'Thriller atmosphérique', 'Enquête', 'Réalisme']
   },
-
-  // LIVRES (6)
   {
     id: 'liv-1',
     title: 'Fictions (Ficciones)',
@@ -256,8 +252,6 @@ const INITIAL_WORKS = [
     pitch: "La biographie haletante d'Alexander von Humboldt, le savant-aventurier du XIXe siècle qui a escaladé les volcans des Andes et compris le premier que la Terre était un unique organisme vivant interconnecté.",
     tags: ['Sciences', 'Histoire', 'Aventure', 'Nature', 'Vulgarisation']
   },
-
-  // JEUX VIDÉO (6)
   {
     id: 'jeu-1',
     title: 'Outer Wilds',
@@ -324,8 +318,6 @@ const INITIAL_WORKS = [
     pitch: "Plongez dans les ruines souterraines d'Hallownest, un vaste royaume d'insectes dessiné à la main avec une finesse gothique. Une exploration exigeante portée par une bande-son symphonique inoubliable.",
     tags: ['Exploration', 'Mélancolie', 'Artisanat', 'Atmosphérique', 'Aventure']
   },
-
-  // MUSIQUE (6)
   {
     id: 'mus-1',
     title: 'Modal Soul',
@@ -392,8 +384,6 @@ const INITIAL_WORKS = [
     pitch: "Enregistré en Islande avec une guitare jouée à l'archet de violoncelle, cet album post-rock déploie des cathédrales sonores boréales d'une beauté surnaturelle.",
     tags: ['Onirique', 'Contemplatif', 'Nature', 'Poésie', 'Visuel grandiose']
   },
-
-  // YOUTUBE (6)
   {
     id: 'yt-1',
     title: 'The Great Silence & les mystères cosmiques',
@@ -462,7 +452,6 @@ const INITIAL_WORKS = [
   }
 ];
 
-// --- SERVICE DE RÉCUPÉRATION AUTOMATIQUE DES VISUELS (AFFICHES & POCHETTES OFFICIELLES) ---
 const visualCache = {};
 const CACHE_STORAGE_KEY = 'curatio_visuals_cache_v3';
 try {
@@ -478,12 +467,9 @@ const saveVisualToCache = (id, url) => {
   visualCache[id] = url;
   try {
     localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(visualCache));
-  } catch (e) {
-    // ignore storage quota errors
-  }
+  } catch (e) {}
 };
 
-// Filtre strict pour éviter que Wikipedia ne renvoie la photo du réalisateur/auteur ou un logo générique
 function isValidPosterUrl(url, creator = '') {
   if (!url) return false;
   const lowerUrl = url.toLowerCase();
@@ -518,7 +504,6 @@ async function fetchWorkArtwork(work) {
   const queryTitle = work.wikiQuery || work.title;
   const cleanCreator = work.creator.split('&')[0].split('(')[0].trim();
 
-  // 1. Pour Cinéma, Séries, Musique : iTunes Search API en priorité absolue
   if (['cinema', 'series', 'musique'].includes(work.category)) {
     try {
       const entityMap = {
@@ -534,9 +519,7 @@ async function fetchWorkArtwork(work) {
       ];
 
       for (const q of queriesToTry) {
-        const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(
-          q
-        )}&entity=${entity}&limit=5`;
+        const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=${entity}&limit=5`;
         const res = await fetch(itunesUrl);
         const data = await res.json();
         if (data?.results?.length > 0) {
@@ -554,17 +537,12 @@ async function fetchWorkArtwork(work) {
           }
         }
       }
-    } catch (e) {
-      // continue
-    }
+    } catch (e) {}
   }
 
-  // 2. Pour les Livres : OpenLibrary Covers API & Google Books / iTunes Ebooks
   if (work.category === 'livres') {
     try {
-      const olUrl = `https://openlibrary.org/search.json?title=${encodeURIComponent(
-        work.title
-      )}&author=${encodeURIComponent(cleanCreator)}&limit=3`;
+      const olUrl = `https://openlibrary.org/search.json?title=${encodeURIComponent(work.title)}&author=${encodeURIComponent(cleanCreator)}&limit=3`;
       const res = await fetch(olUrl);
       const data = await res.json();
       const docWithCover = data?.docs?.find((d) => d.cover_i);
@@ -573,27 +551,9 @@ async function fetchWorkArtwork(work) {
         saveVisualToCache(work.id, coverUrl);
         return coverUrl;
       }
-    } catch (e) {
-      // continue
-    }
-
-    try {
-      const itunesBookUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(
-        `${work.title}${cleanCreator}`
-      )}&entity=ebook&limit=2`;
-      const res = await fetch(itunesBookUrl);
-      const data = await res.json();
-      if (data?.results?.[0]?.artworkUrl100) {
-        const hiRes = data.results[0].artworkUrl100.replace('100x100bb', '900x900bb');
-        saveVisualToCache(work.id, hiRes);
-        return hiRes;
-      }
-    } catch (e) {
-      // continue
-    }
+    } catch (e) {}
   }
 
-  // 3. Wikipedia REST API Summary
   const suffixMap = {
     cinema: ' (film)',
     series: ' (TV series)',
@@ -611,9 +571,7 @@ async function fetchWorkArtwork(work) {
   for (const lang of ['en', 'fr']) {
     for (const candidate of candidates) {
       try {
-        const summaryUrl = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(
-          candidate
-        )}`;
+        const summaryUrl = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(candidate)}`;
         const res = await fetch(summaryUrl);
         if (!res.ok) continue;
         const data = await res.json();
@@ -622,16 +580,13 @@ async function fetchWorkArtwork(work) {
           saveVisualToCache(work.id, imgUrl);
           return imgUrl;
         }
-      } catch (e) {
-        // continue
-      }
+      } catch (e) {}
     }
   }
 
   return null;
 }
 
-// Composant Bandeau Visuel Uniforme Pleine Largeur (Cliquable pour afficher l'image complète)
 function WorkVisualBanner({ work, catMeta, onOpenLightbox }) {
   const [imageUrl, setImageUrl] = useState(() => visualCache[work.id] || null);
   const [loading, setLoading] = useState(!visualCache[work.id]);
@@ -652,9 +607,7 @@ function WorkVisualBanner({ work, catMeta, onOpenLightbox }) {
         setLoading(false);
       }
     });
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, [work]);
 
   const canZoom = Boolean(imageUrl && !imgError);
@@ -664,22 +617,13 @@ function WorkVisualBanner({ work, catMeta, onOpenLightbox }) {
       onClick={() => canZoom && onOpenLightbox({ url: imageUrl, work })}
       role={canZoom ? 'button' : undefined}
       tabIndex={canZoom ? 0 : undefined}
-      onKeyDown={(e) => {
-        if (canZoom && (e.key === 'Enter' || e.key === ' ')) {
-          e.preventDefault();
-          onOpenLightbox({ url: imageUrl, work });
-        }
-      }}
-      title={canZoom ? "Cliquer pour voir l'affiche / le visuel en entier" : undefined}
-      className={`relative w-full h-40 rounded-xl overflow-hidden mb-3.5 bg-stone-900 border border-stone-200/80 shadow-inner group/img ${
-        canZoom ? 'cursor-zoom-in' : ''
-      }`}
+      className={`relative w-full h-40 rounded-xl overflow-hidden mb-3.5 bg-stone-900 border border-stone-200/80 shadow-inner group/img ${canZoom ? 'cursor-zoom-in' : ''}`}
     >
       {canZoom ? (
         <>
           <img
             src={imageUrl}
-            alt={`Affiche ou pochette de ${work.title}`}
+            alt={`Affiche de ${work.title}`}
             onError={() => setImgError(true)}
             className="w-full h-full object-cover object-center transition-transform duration-500 group-hover/img:scale-105"
           />
@@ -702,17 +646,13 @@ function WorkVisualBanner({ work, catMeta, onOpenLightbox }) {
           ) : (
             <>
               <CatIcon className="w-7 h-7 opacity-40 mb-1" />
-              <span className="text-xs font-semibold tracking-wide opacity-90 line-clamp-1 px-4">
-                {work.title}
-              </span>
-              <span className="text-[10px] opacity-60 font-mono mt-0.5">
-                {work.creator} • {work.year}
-              </span>
+              <span className="text-xs font-semibold tracking-wide opacity-90 line-clamp-1 px-4">{work.title}</span>
+              <span className="text-[10px] opacity-60 font-mono mt-0.5">{work.creator} • {work.year}</span>
             </>
           )}
         </div>
       )}
-    </div>
+  </div>
   );
 }
 
@@ -720,9 +660,7 @@ const getInitialState = () => {
   try {
     const saved = localStorage.getItem('almanach_culturel_v1');
     if (saved) return JSON.parse(saved);
-  } catch (e) {
-    console.error(e);
-  }
+  } catch (e) {}
   return {
     'cin-1': { status: 'consumed', rating: 5, updatedAt: Date.now() - 300000 },
     'jeu-1': { status: 'consumed', rating: 5, updatedAt: Date.now() - 200000 },
@@ -742,9 +680,7 @@ export default function App() {
         const customOnly = parsed.filter(w => !existingIds.has(w.id));
         return [...customOnly, ...INITIAL_WORKS];
       }
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) {}
     return INITIAL_WORKS;
   });
   const [userState, setUserState] = useState(getInitialState);
@@ -757,7 +693,11 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [showDismissed, setShowDismissed] = useState(false);
 
-  // États IA Gemini
+  // Clé API stockée en localStorage pour la sécurité GitHub
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('curatio_gemini_api_key') || '');
+  const [showApiKeyModal, setShowApiKeyModal] = useState(!localStorage.getItem('curatio_gemini_api_key'));
+  const [tempApiKey, setTempApiKey] = useState('');
+
   const [aiMoodPrompt, setAiMoodPrompt] = useState('');
   const [isGeneratingRecs, setIsGeneratingRecs] = useState(false);
   const [showAiGenerator, setShowAiGenerator] = useState(false);
@@ -768,21 +708,12 @@ export default function App() {
   
   const fileInputRef = useRef(null);
 
-  // Sauvegarde automatique dans localStorage
   useEffect(() => {
-    try {
-      localStorage.setItem('almanach_culturel_v1', JSON.stringify(userState));
-    } catch (e) {
-      console.error(e);
-    }
+    try { localStorage.setItem('almanach_culturel_v1', JSON.stringify(userState)); } catch (e) {}
   }, [userState]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('almanach_custom_works_v1', JSON.stringify(works));
-    } catch (e) {
-      console.error(e);
-    }
+    try { localStorage.setItem('almanach_custom_works_v1', JSON.stringify(works)); } catch (e) {}
   }, [works]);
 
   const showToast = (message, undoAction = null) => {
@@ -792,7 +723,18 @@ export default function App() {
     }, 4000);
   };
 
-  // --- EXPORT & IMPORT DE SAUVEGARDE JSON ---
+  const handleSaveApiKey = (e) => {
+    e.preventDefault();
+    const trimmed = tempApiKey.trim();
+    if (trimmed) {
+      setApiKey(trimmed);
+      localStorage.setItem('curatio_gemini_api_key', trimmed);
+      setShowApiKeyModal(false);
+      setTempApiKey('');
+      showToast("🔑 Clé API enregistrée en toute sécurité !");
+    }
+  };
+
   const handleExportData = () => {
     try {
       const backupData = {
@@ -802,7 +744,6 @@ export default function App() {
         userState,
         works: works.filter(w => !INITIAL_WORKS.some(iw => iw.id === w.id))
       };
-      
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
       const downloadAnchor = document.createElement('a');
       downloadAnchor.setAttribute("href", dataStr);
@@ -812,8 +753,7 @@ export default function App() {
       downloadAnchor.remove();
       showToast("💾 Sauvegarde exportée avec succès !");
     } catch (e) {
-      console.error(e);
-      showToast("Erreur lors de l'exportation de la sauvegarde.");
+      showToast("Erreur lors de l'exportation.");
     }
   };
 
@@ -835,17 +775,15 @@ export default function App() {
             }
             showToast("📂 Sauvegarde restaurée avec succès !");
           } else {
-            showToast("Fichier de sauvegarde invalide.");
+            showToast("Fichier invalide.");
           }
         } catch (err) {
-          console.error(err);
-          showToast("Erreur lors de la lecture du fichier JSON.");
+          showToast("Erreur de lecture du JSON.");
         }
       };
     }
   };
 
-  // --- ALGORITHME D'AFFINITÉ DYNAMIQUE ---
   const affinityProfile = useMemo(() => {
     const tagWeights = {};
     const categoryWeights = {};
@@ -903,7 +841,6 @@ export default function App() {
     return { score: normalized, matchedTags };
   };
 
-  // --- FONCTIONS IA GEMINI ---
   const getUserTasteSummary = () => {
     const loved = works
       .filter(w => userState[w.id]?.status === 'consumed' && userState[w.id]?.rating >= 4)
@@ -921,6 +858,10 @@ export default function App() {
 
   const handleGenerateAiRecommendations = async (e) => {
     if (e) e.preventDefault();
+    if (!apiKey) {
+      setShowApiKeyModal(true);
+      return;
+    }
     if (isGeneratingRecs) return;
 
     setIsGeneratingRecs(true);
@@ -943,7 +884,7 @@ Profil de l'utilisateur :
 IMPORTANT :
 - Ne propose JAMAIS une œuvre déjà présente dans cette liste : ${existingTitles}.
 - Les catégories autorisées pour le champ "category" sont strictement : "cinema", "series", "livres", "jeux", "musique", "youtube".
-- Utilise au moins 1 ou 2 tags parmi les tonalités favorites de l'utilisateur (${favTags}) si cela s'y prête honnêtement, pour assurer le calcul d'affinité.`;
+- Utilise au moins 1 ou 2 tags parmi les tonalités favorites de l'utilisateur (${favTags}) si cela s'y prête honnêtement.`;
 
       const payload = {
         contents: [{ parts: [{ text: userPrompt }] }],
@@ -969,7 +910,7 @@ IMPORTANT :
         }
       };
 
-      const rawJson = await callGeminiAPI(payload);
+      const rawJson = await callGeminiAPI(payload, apiKey);
       const generatedList = JSON.parse(rawJson);
 
       if (Array.isArray(generatedList) && generatedList.length > 0) {
@@ -987,13 +928,17 @@ IMPORTANT :
       }
     } catch (err) {
       console.error(err);
-      showToast("Erreur lors de la génération. Réessayez dans un instant.");
+      showToast("Erreur lors de la génération. Vérifiez votre clé API.");
     } finally {
       setIsGeneratingRecs(false);
     }
   };
 
   const handleOpenDeepDive = async (work) => {
+    if (!apiKey) {
+      setShowApiKeyModal(true);
+      return;
+    }
     setDeepDiveModalWork(work);
     setDeepDiveContent('');
     setIsLoadingDeepDive(true);
@@ -1008,16 +953,15 @@ Pitch : ${work.pitch}
 Structure ta réponse en 3 points concis :
 1. **Génie formel & esthétique** : Ce qui rend cette œuvre unique dans son médium.
 2. **Résonance avec vos goûts** : Pourquoi elle dialogue avec les œuvres aimées par l'utilisateur (${loved.join(', ') || favTags || 'un amateur de récits singuliers'}).
-3. **Échos & Filiations** : 2 œuvres cousines dans d'autres arts (ex: un peintre, un livre, un disque ou un film qui partage la même âme).`;
+3. **Échos & Filiations** : 2 œuvres cousines dans d'autres arts.`;
 
       const text = await callGeminiAPI({
         contents: [{ parts: [{ text: userPrompt }] }],
         systemInstruction: { parts: [{ text: systemPrompt }] }
-      });
+      }, apiKey);
       setDeepDiveContent(text);
     } catch (err) {
-      console.error(err);
-      setDeepDiveContent("Une erreur est survenue lors de la consultation de l'oracle critique.");
+      setDeepDiveContent("Une erreur est survenue. Vérifiez votre clé API.");
     } finally {
       setIsLoadingDeepDive(false);
     }
@@ -1025,15 +969,11 @@ Structure ta réponse en 3 points concis :
 
   const handleMarkInterested = (work) => {
     const prevState = userState[work.id];
-    setUserState((prev) => ({
-      ...prev,
-      [work.id]: { status: 'interested', rating: 0, updatedAt: Date.now() }
-    }));
+    setUserState((prev) => ({ ...prev, [work.id]: { status: 'interested', rating: 0, updatedAt: Date.now() } }));
     showToast(`« ${work.title} » ajouté à Ma Liste`, () => {
       setUserState((prev) => {
         const copy = { ...prev };
-        if (prevState) copy[work.id] = prevState;
-        else delete copy[work.id];
+        if (prevState) copy[work.id] = prevState; else delete copy[work.id];
         return copy;
       });
     });
@@ -1041,36 +981,26 @@ Structure ta réponse en 3 points concis :
 
   const handleMarkNotInterested = (work) => {
     const prevState = userState[work.id];
-    setUserState((prev) => ({
-      ...prev,
-      [work.id]: { status: 'not_interested', rating: 0, updatedAt: Date.now() }
-    }));
-    showToast(`« ${work.title} » masqué des recommandations`, () => {
+    setUserState((prev) => ({ ...prev, [work.id]: { status: 'not_interested', rating: 0, updatedAt: Date.now() } }));
+    showToast(`« ${work.title} » masqué`, () => {
       setUserState((prev) => {
         const copy = { ...prev };
-        if (prevState) copy[work.id] = prevState;
-        else delete copy[work.id];
+        if (prevState) copy[work.id] = prevState; else delete copy[work.id];
         return copy;
       });
     });
   };
 
   const handleConfirmConsumed = (work, rating) => {
-    setUserState((prev) => ({
-      ...prev,
-      [work.id]: { status: 'consumed', rating, updatedAt: Date.now() }
-    }));
+    setUserState((prev) => ({ ...prev, [work.id]: { status: 'consumed', rating, updatedAt: Date.now() } }));
     setRatingModalWork(null);
     setHoverRating(0);
     showToast(`« ${work.title} » noté ${rating}/5 ★ — Algorithme affiné !`);
   };
 
   const handleUpdateRatingDirect = (work, newRating) => {
-    setUserState((prev) => ({
-      ...prev,
-      [work.id]: { status: 'consumed', rating: newRating, updatedAt: Date.now() }
-    }));
-    showToast(`Note de « ${work.title} » mise à jour (${newRating}/5 ★)`);
+    setUserState((prev) => ({ ...prev, [work.id]: { status: 'consumed', rating: newRating, updatedAt: Date.now() } }));
+    showToast(`Note mise à jour (${newRating}/5 ★)`);
   };
 
   const handleRemoveFromState = (work) => {
@@ -1107,13 +1037,8 @@ Structure ta réponse en 3 points concis :
           if (st !== 'consumed') return false;
           if (ratingFilter > 0 && userState[work.id]?.rating !== ratingFilter) return false;
         }
-
-        if (selectedCategory !== 'all' && work.category !== selectedCategory) {
-          return false;
-        }
-        if (selectedTag && !work.tags.includes(selectedTag)) {
-          return false;
-        }
+        if (selectedCategory !== 'all' && work.category !== selectedCategory) return false;
+        if (selectedTag && !work.tags.includes(selectedTag)) return false;
         return true;
       })
       .map((work) => {
@@ -1145,12 +1070,8 @@ Structure ta réponse en 3 points concis :
   }, [selectedTag, works, userState]);
 
   const handleTagClick = (tag) => {
-    if (selectedTag === tag) {
-      setSelectedTag(null);
-    } else {
-      setSelectedTag(tag);
-      showToast(`Filtrage actif sur le hashtag #${tag}`);
-    }
+    if (selectedTag === tag) setSelectedTag(null);
+    else { setSelectedTag(tag); showToast(`Filtrage actif sur #${tag}`); }
   };
 
   const getCategoryMeta = (catId) => CATEGORIES.find((c) => c.id === catId) || CATEGORIES[0];
@@ -1159,65 +1080,59 @@ Structure ta réponse en 3 points concis :
     <div className="min-h-screen bg-[#FAF7F2] text-stone-900 font-sans selection:bg-amber-200 selection:text-stone-900 pb-20">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-        .font-curatio-logo {
-          font-family: 'Syne', 'Plus Jakarta Sans', sans-serif;
-          letter-spacing: -0.03em;
-        }
+        .font-curatio-logo { font-family: 'Syne', 'Plus Jakarta Sans', sans-serif; letter-spacing: -0.03em; }
       `}</style>
 
-      {/* BARRE SUPÉRIEURE ÉDITORIALE & SAUVEGARDE / RESTAURATION */}
+      {/* BARRE SUPÉRIEURE */}
       <header className="border-b border-stone-300 bg-[#FAF7F2]/95 backdrop-blur-md sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="py-3.5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            
-            {/* Logo CURATIO & Boutons de Sauvegarde sécurisés */}
             <div className="flex items-center justify-between md:justify-start gap-4">
               <h1 className="text-2xl sm:text-3xl font-curatio-logo font-extrabold uppercase text-stone-950 leading-none tracking-tight">
                 CURATIO
               </h1>
 
-             <div className="flex items-center gap-1.5 bg-stone-200/80 p-1 rounded-xl border border-stone-300">
-  <button
-    onClick={handleExportData}
-    className="flex items-center justify-center p-2 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold bg-white text-stone-800 hover:bg-stone-50 shadow-sm transition-all"
-    title="Télécharger une sauvegarde JSON de vos notes et listes"
-  >
-    <Save className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-amber-700 shrink-0" />
-    <span className="hidden sm:inline ml-1.5">Sauvegarder</span>
-  </button>
-  <label
-    className="flex items-center justify-center p-2 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold bg-white text-stone-800 hover:bg-stone-50 shadow-sm transition-all cursor-pointer"
-    title="Restaurer vos données à partir d'un fichier de sauvegarde"
-  >
-    <Upload className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-emerald-700 shrink-0" />
-    <span className="hidden sm:inline ml-1.5">Restaurer</span>
-    <input
-      ref={fileInputRef}
-      type="file"
-      accept=".json"
-      onChange={handleImportData}
-      className="hidden"
-    />
-  </label>
-</div>
+              <div className="flex items-center gap-1.5 bg-stone-200/80 p-1 rounded-xl border border-stone-300">
+                <button
+                  onClick={handleExportData}
+                  className="flex items-center justify-center p-2 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold bg-white text-stone-800 hover:bg-stone-50 shadow-sm transition-all"
+                  title="Sauvegarder"
+                >
+                  <Save className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-amber-700 shrink-0" />
+                  <span className="hidden sm:inline ml-1.5">Sauvegarder</span>
+                </button>
+                <label
+                  className="flex items-center justify-center p-2 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold bg-white text-stone-800 hover:bg-stone-50 shadow-sm transition-all cursor-pointer"
+                  title="Restaurer"
+                >
+                  <Upload className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-emerald-700 shrink-0" />
+                  <span className="hidden sm:inline ml-1.5">Restaurer</span>
+                  <input ref={fileInputRef} type="file" accept=".json" onChange={handleImportData} className="hidden" />
+                </label>
+                <button
+                  onClick={() => setShowApiKeyModal(true)}
+                  className={`flex items-center justify-center p-2 sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold shadow-sm transition-all ${
+                    apiKey ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-amber-500 text-stone-950'
+                  }`}
+                  title="Configurer la clé API Gemini"
+                >
+                  <Key className="w-4 h-4 sm:w-3.5 sm:h-3.5 shrink-0" />
+                  <span className="hidden sm:inline ml-1.5">{apiKey ? 'Clé active' : 'API Key'}</span>
+                </button>
+              </div>
             </div>
 
-            {/* Navigation Principale (3 Onglets) */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 self-start md:self-auto w-full md:w-auto">
               <nav className="flex bg-stone-200/75 p-1.5 rounded-xl border border-stone-300/80 w-full md:w-auto overflow-x-auto">
                 <button
                   onClick={() => { setActiveTab('recommendations'); setShowDismissed(false); }}
                   className={`flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap flex-1 md:flex-initial ${
-                    activeTab === 'recommendations'
-                      ? 'bg-stone-900 text-amber-50 shadow-sm'
-                      : 'text-stone-700 hover:text-stone-900 hover:bg-stone-300/50'
+                    activeTab === 'recommendations' ? 'bg-stone-900 text-amber-50 shadow-sm' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-300/50'
                   }`}
                 >
                   <Sparkles className="w-4 h-4 text-amber-400" />
                   <span>Recommandations</span>
-                  <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${
-                    activeTab === 'recommendations' ? 'bg-stone-700 text-stone-200' : 'bg-stone-300 text-stone-700'
-                  }`}>
+                  <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${activeTab === 'recommendations' ? 'bg-stone-700 text-stone-200' : 'bg-stone-300 text-stone-700'}`}>
                     {counts.rec}
                   </span>
                 </button>
@@ -1225,16 +1140,12 @@ Structure ta réponse en 3 points concis :
                 <button
                   onClick={() => setActiveTab('watchlist')}
                   className={`flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap flex-1 md:flex-initial ${
-                    activeTab === 'watchlist'
-                      ? 'bg-stone-900 text-amber-50 shadow-sm'
-                      : 'text-stone-700 hover:text-stone-900 hover:bg-stone-300/50'
+                    activeTab === 'watchlist' ? 'bg-stone-900 text-amber-50 shadow-sm' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-300/50'
                   }`}
                 >
                   <Bookmark className="w-4 h-4 text-emerald-400" />
                   <span>Ça m'intéresse</span>
-                  <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${
-                    activeTab === 'watchlist' ? 'bg-stone-700 text-stone-200' : 'bg-stone-300 text-stone-700'
-                  }`}>
+                  <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${activeTab === 'watchlist' ? 'bg-stone-700 text-stone-200' : 'bg-stone-300 text-stone-700'}`}>
                     {counts.watch}
                   </span>
                 </button>
@@ -1242,16 +1153,12 @@ Structure ta réponse en 3 points concis :
                 <button
                   onClick={() => setActiveTab('consumed')}
                   className={`flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap flex-1 md:flex-initial ${
-                    activeTab === 'consumed'
-                      ? 'bg-stone-900 text-amber-50 shadow-sm'
-                      : 'text-stone-700 hover:text-stone-900 hover:bg-stone-300/50'
+                    activeTab === 'consumed' ? 'bg-stone-900 text-amber-50 shadow-sm' : 'text-stone-700 hover:text-stone-900 hover:bg-stone-300/50'
                   }`}
                 >
                   <CheckCircle2 className="w-4 h-4 text-rose-400" />
                   <span>Déjà vu / lu / écouté</span>
-                  <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${
-                    activeTab === 'consumed' ? 'bg-stone-700 text-stone-200' : 'bg-stone-300 text-stone-700'
-                  }`}>
+                  <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${activeTab === 'consumed' ? 'bg-stone-700 text-stone-200' : 'bg-stone-300 text-stone-700'}`}>
                     {counts.cons}
                   </span>
                 </button>
@@ -1263,8 +1170,6 @@ Structure ta réponse en 3 points concis :
 
       {/* CONTENU PRINCIPAL */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-        
-        {/* BANDEAU PROFIL D'AFFINITÉ & CONCIERGE CULTUREL */}
         {activeTab === 'recommendations' && (
           <div className="mb-6 bg-gradient-to-r from-stone-900 via-stone-800 to-stone-900 text-stone-100 rounded-2xl p-5 shadow-md border border-stone-700">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -1276,20 +1181,19 @@ Structure ta réponse en 3 points concis :
                   <h2 className="text-base font-serif font-semibold text-amber-50">
                     Votre curateur culturel personnalisé
                   </h2>
-              <p className="text-xs sm:text-sm text-stone-300 mt-1 flex flex-wrap items-center gap-1">
-  <span>Notez vos oeuvres dans l'onglet</span>
-  <button
-    onClick={() => setActiveTab('consumed')}
-    className="text-amber-300 hover:text-amber-200 underline font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
-  >
-    <span>Déjà vu / lu / écouté</span>
-  </button>
-  <span>, ou sollicitez votre Curateur pour dénicher de nouvelles pépites :</span>
-</p>
+                  <p className="text-xs sm:text-sm text-stone-300 mt-1 flex flex-wrap items-center gap-1">
+                    <span>Notez vos oeuvres dans l'onglet</span>
+                    <button
+                      onClick={() => setActiveTab('consumed')}
+                      className="text-amber-300 hover:text-amber-200 underline font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <span>Déjà vu / lu / écouté</span>
+                    </button>
+                    <span>, ou sollicitez votre Curateur pour dénicher de nouvelles pépites :</span>
+                  </p>
                 </div>
               </div>
 
-              {/* Bouton d'action principal agrandi */}
               <div className="flex items-center shrink-0">
                 <button
                   onClick={() => setShowAiGenerator(!showAiGenerator)}
@@ -1301,7 +1205,6 @@ Structure ta réponse en 3 points concis :
               </div>
             </div>
 
-            {/* Tags dominants de l'utilisateur */}
             <div className="flex flex-wrap items-center gap-2 mt-4 pt-3.5 border-t border-stone-700/70">
               <span className="text-xs uppercase tracking-wider text-stone-400 mr-1">Vos tonalités dominantes :</span>
               {affinityProfile.topTags.length > 0 ? (
@@ -1312,11 +1215,8 @@ Structure ta réponse en 3 points concis :
                       key={tag}
                       onClick={() => handleTagClick(tag)}
                       className={`text-xs font-medium px-3 py-1 rounded-full border flex items-center gap-1.5 transition-all cursor-pointer ${
-                        isTagSelected
-                          ? 'bg-amber-400 text-stone-950 border-amber-300 font-bold shadow-sm scale-105'
-                          : 'bg-stone-700/90 text-amber-200 border-amber-500/30 hover:bg-stone-600'
+                        isTagSelected ? 'bg-amber-400 text-stone-950 border-amber-300 font-bold shadow-sm scale-105' : 'bg-stone-700/90 text-amber-200 border-amber-500/30 hover:bg-stone-600'
                       }`}
-                      title={`Voir toutes les œuvres avec #${tag}`}
                     >
                       <Hash className="w-3 h-3 text-amber-400" />
                       <span>{tag}</span>
@@ -1324,23 +1224,17 @@ Structure ta réponse en 3 points concis :
                   );
                 })
               ) : (
-                <span className="text-xs text-stone-400 italic">
-                  Notez au moins une œuvre 4 ou 5 étoiles pour révéler vos affinités.
-                </span>
+                <span className="text-xs text-stone-400 italic">Notez au moins une œuvre 4 ou 5 étoiles pour révéler vos affinités.</span>
               )}
             </div>
 
-            {/* Panneau du Générateur de Recommandations sur-mesure */}
             {showAiGenerator && (
-              <form
-                onSubmit={handleGenerateAiRecommendations}
-                className="mt-4 pt-4 border-t border-stone-700 flex flex-col sm:flex-row gap-2.5"
-              >
+              <form onSubmit={handleGenerateAiRecommendations} className="mt-4 pt-4 border-t border-stone-700 flex flex-col sm:flex-row gap-2.5">
                 <input
                   type="text"
                   value={aiMoodPrompt}
                   onChange={(e) => setAiMoodPrompt(e.target.value)}
-                  placeholder="Envie particulière ? (ex: un roman de SF mélancolique, un disque de jazz nocturne, ou laissez vide selon vos notes)"
+                  placeholder="Envie particulière ? (ex: un roman de SF mélancolique, un disque de jazz...)"
                   className="flex-1 bg-stone-950/90 border border-stone-700 rounded-xl px-4 py-2.5 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none focus:border-amber-400"
                 />
                 <button
@@ -1349,15 +1243,9 @@ Structure ta réponse en 3 points concis :
                   className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-stone-950 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-60 shrink-0"
                 >
                   {isGeneratingRecs ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Consultation critique...</span>
-                    </>
+                    <><Loader2 className="w-4 h-4 animate-spin" /><span>Consultation critique...</span></>
                   ) : (
-                    <>
-                      <Sparkles className="w-4 h-4" />
-                      <span>Générer 3 œuvres ({selectedCategory === 'all' ? 'Toutes catégories' : getCategoryMeta(selectedCategory).label})</span>
-                    </>
+                    <><Wand2 className="w-4 h-4" /><span>Générer 3 œuvres ({selectedCategory === 'all' ? 'Toutes' : getCategoryMeta(selectedCategory).label})</span></>
                   )}
                 </button>
               </form>
@@ -1365,7 +1253,7 @@ Structure ta réponse en 3 points concis :
           </div>
         )}
 
-        {/* BARRE DE FILTRES PAR CATÉGORIE */}
+        {/* FILTRES CATÉGORIES */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-stone-200">
           <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0 no-scrollbar">
             {CATEGORIES.map((cat) => {
@@ -1376,9 +1264,7 @@ Structure ta réponse en 3 points concis :
                   key={cat.id}
                   onClick={() => setSelectedCategory(cat.id)}
                   className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-all shrink-0 border ${
-                    isSelected
-                      ? `${cat.color} border-transparent shadow-sm scale-[1.02]`
-                      : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-100'
+                    isSelected ? `${cat.color} border-transparent shadow-sm scale-[1.02]` : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-100'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -1392,15 +1278,11 @@ Structure ta réponse en 3 points concis :
             <button
               onClick={() => setShowDismissed(!showDismissed)}
               className={`text-xs font-medium px-3 py-2 rounded-lg border transition-colors self-start sm:self-auto flex items-center gap-1.5 ${
-                showDismissed
-                  ? 'bg-stone-800 text-white border-stone-800'
-                  : 'bg-stone-100 text-stone-600 border-stone-300 hover:bg-stone-200'
+                showDismissed ? 'bg-stone-800 text-white border-stone-800' : 'bg-stone-100 text-stone-600 border-stone-300 hover:bg-stone-200'
               }`}
             >
               <Eye className="w-3.5 h-3.5" />
-              {showDismissed
-                ? 'Retour aux recommandations'
-                : `Voir les œuvres écartées (${counts.dismissed})`}
+              {showDismissed ? 'Retour aux recommandations' : `Voir les œuvres écartées (${counts.dismissed})`}
             </button>
           )}
 
@@ -1412,9 +1294,7 @@ Structure ta réponse en 3 points concis :
                   key={stars}
                   onClick={() => setRatingFilter(stars)}
                   className={`px-2 py-1 rounded text-xs font-semibold transition-colors flex items-center gap-0.5 ${
-                    ratingFilter === stars
-                      ? 'bg-amber-500 text-stone-950'
-                      : 'text-stone-600 hover:bg-stone-100'
+                    ratingFilter === stars ? 'bg-amber-500 text-stone-950' : 'text-stone-600 hover:bg-stone-100'
                   }`}
                 >
                   {stars === 0 ? 'Toutes' : `${stars}★`}
@@ -1424,7 +1304,7 @@ Structure ta réponse en 3 points concis :
           )}
         </div>
 
-        {/* BANDEAU DE FILTRE HASHTAG ACTIF */}
+        {/* FILTRE HASHTAG */}
         {selectedTag && (
           <div className="mb-6 bg-amber-100/90 border border-amber-300 rounded-2xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
             <div className="flex items-center gap-2.5 flex-wrap">
@@ -1435,29 +1315,6 @@ Structure ta réponse en 3 points concis :
               <span className="text-xs sm:text-sm text-stone-800 font-medium">
                 Exploration du hashtag <strong>#{selectedTag}</strong>
               </span>
-              {tagCountsByTab && (
-                <div className="flex items-center gap-1.5 text-xs text-stone-600 ml-1">
-                  <span>•</span>
-                  <button
-                    onClick={() => setActiveTab('recommendations')}
-                    className={`px-2 py-0.5 rounded ${activeTab === 'recommendations' ? 'bg-stone-900 text-white font-semibold' : 'hover:underline'}`}
-                  >
-                    {tagCountsByTab.rec} dans Recommandations
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('watchlist')}
-                    className={`px-2 py-0.5 rounded ${activeTab === 'watchlist' ? 'bg-stone-900 text-white font-semibold' : 'hover:underline'}`}
-                  >
-                    {tagCountsByTab.watch} dans Ma Liste
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('consumed')}
-                    className={`px-2 py-0.5 rounded ${activeTab === 'consumed' ? 'bg-stone-900 text-white font-semibold' : 'hover:underline'}`}
-                  >
-                    {tagCountsByTab.cons} dans Déjà vu
-                  </button>
-                </div>
-              )}
             </div>
             <button
               onClick={() => setSelectedTag(null)}
@@ -1469,42 +1326,14 @@ Structure ta réponse en 3 points concis :
           </div>
         )}
 
-        {/* GRILLE DES CARTES D'ŒUVRES */}
+        {/* GRILLE D'ŒUVRES */}
         {displayedWorks.length === 0 ? (
           <div className="bg-white rounded-2xl border border-stone-200 p-12 text-center max-w-lg mx-auto my-8 shadow-sm">
             <div className="w-12 h-12 rounded-full bg-stone-100 text-stone-500 flex items-center justify-center mx-auto mb-4">
               <Compass className="w-6 h-6" />
             </div>
-            <h3 className="text-lg font-sans font-bold text-stone-800">
-              Aucune œuvre dans cette sélection
-            </h3>
-            <p className="text-sm text-stone-600 mt-2">
-              {selectedTag
-                ? `Aucune œuvre portant le hashtag #${selectedTag} dans cet onglet ou cette catégorie.`
-                : activeTab === 'recommendations'
-                ? "Vous avez parcouru toutes les œuvres de cette catégorie ! Essayez une autre catégorie ou réinitialisez les filtres."
-                : activeTab === 'watchlist'
-                ? "Votre liste « Ça m'intéresse » est vide pour cette catégorie. Explorez l'onglet Recommandations pour y ajouter des pépites."
-                : "Aucune œuvre consommée ne correspond à ce filtre."}
-            </p>
-            <div className="flex items-center justify-center gap-3 mt-5">
-              {selectedCategory !== 'all' && (
-                <button
-                  onClick={() => setSelectedCategory('all')}
-                  className="px-4 py-2 bg-stone-900 text-white text-sm font-medium rounded-xl hover:bg-stone-800 transition-colors"
-                >
-                  Afficher toutes les catégories
-                </button>
-              )}
-              {selectedTag && (
-                <button
-                  onClick={() => setSelectedTag(null)}
-                  className="px-4 py-2 bg-amber-500 text-stone-950 text-sm font-semibold rounded-xl hover:bg-amber-400 transition-colors"
-                >
-                  Retirer le filtre #{selectedTag}
-                </button>
-              )}
-            </div>
+            <h3 className="text-lg font-sans font-bold text-stone-800">Aucune œuvre dans cette sélection</h3>
+            <p className="text-sm text-stone-600 mt-2">Modifiez vos filtres ou explorez une autre catégorie.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1526,14 +1355,13 @@ Structure ta réponse en 3 points concis :
                         <CatIcon className="w-3.5 h-3.5" />
                         {catMeta.label}
                       </span>
-
                       <span className="inline-flex items-center gap-1 text-xs font-medium text-stone-600 bg-stone-100 px-2.5 py-1 rounded-md border border-stone-200/60 truncate max-w-[62%]">
                         <Award className="w-3.5 h-3.5 text-amber-700 shrink-0" />
                         <span className="truncate">{work.criticSource}</span>
                       </span>
-                  </div>
+                    </div>
 
-                  <div className="p-5">
+                    <div className="p-5">
                       {work.isAiGenerated && (
                         <div className="mb-2.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-purple-100 text-purple-900 border border-purple-300">
                           <Wand2 className="w-3 h-3 text-purple-700" />
@@ -1547,211 +1375,177 @@ Structure ta réponse en 3 points concis :
                             <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                             <span>Affinité : {work.affinity.score}%</span>
                           </div>
-                          {work.affinity.matchedTags.length > 0 && (
-                            <span className="text-[11px] text-amber-800 truncate max-w-[60%]">
-                              via #{work.affinity.matchedTags.slice(0, 2).join(', #')}
-                            </span>
-                          )}
                         </div>
                       )}
 
-                    <WorkVisualBanner
-                      work={work}
-                      catMeta={catMeta}
-                      onOpenLightbox={(data) => setLightboxData(data)}
-                    />
+                      <WorkVisualBanner work={work} catMeta={catMeta} onOpenLightbox={(data) => setLightboxData(data)} />
 
-                    <div className="flex items-baseline justify-between gap-2">
-                      <h3 className="text-xl font-sans font-bold tracking-tight text-stone-900 leading-snug group-hover:text-amber-900 transition-colors">
-                        {work.title}
-                      </h3>
-                      <span className="text-xs font-mono text-stone-500 shrink-0">{work.year}</span>
-                    </div>
+                      <div className="flex items-baseline justify-between gap-2">
+                        <h3 className="text-xl font-sans font-bold tracking-tight text-stone-900 leading-snug group-hover:text-amber-900 transition-colors">
+                          {work.title}
+                        </h3>
+                        <span className="text-xs font-mono text-stone-500 shrink-0">{work.year}</span>
+                      </div>
 
-                    <p className="text-xs font-semibold uppercase tracking-wider text-stone-500 mt-1">
-                      {work.creator}
-                    </p>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-stone-500 mt-1">{work.creator}</p>
+                      <p className="text-sm text-stone-700 mt-3.5 leading-relaxed">{work.pitch}</p>
 
-                    <p className="text-sm text-stone-700 mt-3.5 leading-relaxed">
-                      {work.pitch}
-                    </p>
-
-                    <div className="flex flex-wrap gap-1.5 mt-4">
-                      {work.tags.map((tag) => {
-                        const isMatched = work.affinity.matchedTags.includes(tag) && activeTab === 'recommendations';
-                        const isSelected = selectedTag === tag;
-                        return (
-                          <button
-                            key={tag}
-                            type="button"
-                            onClick={() => handleTagClick(tag)}
-                            className={`text-[11px] px-2.5 py-1 rounded-full font-medium transition-all flex items-center gap-0.5 cursor-pointer ${
-                              isSelected
-                                ? 'bg-stone-900 text-amber-300 border border-stone-900 shadow-sm scale-105 font-bold'
-                              : isMatched
-                              ? 'bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200'
-                              : 'bg-stone-100 text-stone-600 border border-stone-200/60 hover:bg-stone-200 hover:text-stone-900'
-                          }`}
-                          title={`Filtrer par #${tag}`}
-                        >
-                          <span className="opacity-60">#</span>
-                          <span>{tag}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-stone-100 flex justify-end">
-                    <button
-                      onClick={() => handleOpenDeepDive(work)}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-800 hover:text-amber-950 bg-amber-50/70 hover:bg-amber-100/80 px-3 py-1.5 rounded-lg border border-amber-200/70 transition-colors"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                      <span>Éclairage critique</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="px-5 py-3.5 bg-stone-50/90 border-t border-stone-200/80">
-                {activeTab === 'recommendations' && !showDismissed && (
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      onClick={() => handleMarkInterested(work)}
-                      className="flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-stone-900 text-white hover:bg-stone-800 text-xs font-semibold transition-all shadow-sm"
-                      title="Ajouter à Ma Liste"
-                    >
-                      <Bookmark className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-                      <span>Ça m'intéresse</span>
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setRatingModalWork(work);
-                        setHoverRating(0);
-                      }}
-                      className="flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-emerald-50 text-emerald-900 border border-emerald-200 hover:bg-emerald-100 text-xs font-semibold transition-all"
-                      title="Marquer comme déjà vu, lu ou écouté et noter"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-                      <span>Déjà vu/lu</span>
-                    </button>
-
-                    <button
-                      onClick={() => handleMarkNotInterested(work)}
-                      className="flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-white text-stone-600 border border-stone-200 hover:bg-rose-50 hover:text-rose-800 hover:border-rose-200 text-xs font-medium transition-all"
-                      title="Écarter des recommandations"
-                    >
-                      <XCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>Pas intéressé</span>
-                    </button>
-                  </div>
-                )}
-
-                {activeTab === 'recommendations' && showDismissed && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-stone-500 italic">Œuvre écartée</span>
-                    <button
-                      onClick={() => handleRemoveFromState(work)}
-                      className="px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs font-medium hover:bg-stone-800 flex items-center gap-1.5"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      <span>Restaurer dans le flux</span>
-                    </button>
-                  </div>
-                )}
-
-                {activeTab === 'watchlist' && (
-                  <div className="flex items-center justify-between gap-2">
-                    <button
-                      onClick={() => {
-                        setRatingModalWork(work);
-                        setHoverRating(0);
-                      }}
-                      className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-emerald-800 text-white hover:bg-emerald-700 text-xs font-semibold transition-all shadow-sm"
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Marquer comme vu / lu / écouté & Noter</span>
-                    </button>
-                    <button
-                      onClick={() => handleRemoveFromState(work)}
-                      className="p-2 rounded-xl bg-white text-stone-500 border border-stone-200 hover:text-rose-700 hover:bg-rose-50 transition-colors"
-                      title="Retirer de Ma Liste"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
-
-                {activeTab === 'consumed' && (
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs font-medium text-stone-600 mr-1.5">Votre note :</span>
-                      {[1, 2, 3, 4, 5].map((star) => {
-                        const currentRating = work.state?.rating || 0;
-                        return (
-                          <button
-                            key={star}
-                            onClick={() => handleUpdateRatingDirect(work, star)}
-                            className="p-1 hover:scale-110 transition-transform"
-                            title={`Noter ${star} étoile${star > 1 ? 's' : ''}`}
-                          >
-                            <Star
-                              className={`w-5 h-5 ${
-                                star <= currentRating
-                                  ? 'fill-amber-400 text-amber-500'
-                                  : 'text-stone-300 hover:text-amber-300'
+                      <div className="flex flex-wrap gap-1.5 mt-4">
+                        {work.tags.map((tag) => {
+                          const isSelected = selectedTag === tag;
+                          return (
+                            <button
+                              key={tag}
+                              type="button"
+                              onClick={() => handleTagClick(tag)}
+                              className={`text-[11px] px-2.5 py-1 rounded-full font-medium transition-all flex items-center gap-0.5 cursor-pointer ${
+                                isSelected ? 'bg-stone-900 text-amber-300 border border-stone-900 font-bold' : 'bg-stone-100 text-stone-600 border border-stone-200/60 hover:bg-stone-200'
                               }`}
-                            />
-                          </button>
-                        );
-                      })}
-                    </div>
+                            >
+                              <span className="opacity-60">#</span>
+                              <span>{tag}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
 
-                    <button
-                      onClick={() => handleRemoveFromState(work)}
-                      className="text-xs text-stone-400 hover:text-rose-700 p-1.5 rounded-lg transition-colors"
-                      title="Supprimer de l'historique"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                      <div className="mt-4 pt-3 border-t border-stone-100 flex justify-end">
+                        <button
+                          onClick={() => handleOpenDeepDive(work)}
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-800 hover:text-amber-950 bg-amber-50/70 hover:bg-amber-100/80 px-3 py-1.5 rounded-lg border border-amber-200/70 transition-colors"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                          <span>Éclairage critique</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                )}
-              </div>
-              </article>
-            );
-          })}
-        </div>
+
+                  <div className="px-5 py-3.5 bg-stone-50/90 border-t border-stone-200/80">
+                    {activeTab === 'recommendations' && !showDismissed && (
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          onClick={() => handleMarkInterested(work)}
+                          className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-stone-900 text-white hover:bg-stone-800 text-xs font-semibold shadow-sm"
+                        >
+                          <Bookmark className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                          <span>Intéressant</span>
+                        </button>
+                        <button
+                          onClick={() => { setRatingModalWork(work); setHoverRating(0); }}
+                          className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-emerald-50 text-emerald-900 border border-emerald-200 hover:bg-emerald-100 text-xs font-semibold"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                          <span>Déjà vu/lu</span>
+                        </button>
+                        <button
+                          onClick={() => handleMarkNotInterested(work)}
+                          className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-white text-stone-600 border border-stone-200 hover:bg-rose-50 hover:text-rose-800 text-xs font-medium"
+                        >
+                          <XCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>Masquer</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {activeTab === 'recommendations' && showDismissed && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-stone-500 italic">Œuvre écartée</span>
+                        <button onClick={() => handleRemoveFromState(work)} className="px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs font-medium">Restaurer</button>
+                      </div>
+                    )}
+
+                    {activeTab === 'watchlist' && (
+                      <div className="flex items-center justify-between gap-2">
+                        <button
+                          onClick={() => { setRatingModalWork(work); setHoverRating(0); }}
+                          className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-emerald-800 text-white hover:bg-emerald-700 text-xs font-semibold"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Marquer comme vu & Noter</span>
+                        </button>
+                        <button onClick={() => handleRemoveFromState(work)} className="p-2 rounded-xl bg-white text-stone-500 border border-stone-200 hover:text-rose-700">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+
+                    {activeTab === 'consumed' && (
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs font-medium text-stone-600 mr-1.5">Note :</span>
+                          {[1, 2, 3, 4, 5].map((star) => {
+                            const currentRating = work.state?.rating || 0;
+                            return (
+                              <button key={star} onClick={() => handleUpdateRatingDirect(work, star)} className="p-1 hover:scale-110">
+                                <Star className={`w-5 h-5 ${star <= currentRating ? 'fill-amber-400 text-amber-500' : 'text-stone-300'}`} />
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <button onClick={() => handleRemoveFromState(work)} className="text-xs text-stone-400 hover:text-rose-700 p-1.5">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
         )}
       </main>
 
-      {/* MODALE DE NOTATION */}
-      {ratingModalWork && (
-        <div className="fixed inset-0 z-50 bg-stone-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#FAF7F2] border border-stone-300 rounded-2xl max-w-md w-full p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-stone-200 pb-3 mb-4">
-              <span className="text-xs uppercase tracking-widest font-semibold text-amber-800">
-                Carnet de Critique Personnel
-              </span>
+      {/* MODALE CONFIGURATION CLÉ API */}
+      {showApiKeyModal && (
+        <div className="fixed inset-0 z-50 bg-stone-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <form onSubmit={handleSaveApiKey} className="bg-[#FAF7F2] border border-stone-300 rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div className="flex items-center gap-2 mb-3 text-amber-800">
+              <Key className="w-5 h-5" />
+              <h3 className="text-lg font-serif font-bold">Configuration de la clé API Gemini</h3>
+            </div>
+            <p className="text-xs text-stone-600 leading-relaxed mb-4">
+              Pour activer le Curateur intelligent et l'éclairage critique, veuillez entrer votre clé API Google AI Studio. Elle sera stockée uniquement dans votre navigateur et ne sera jamais publiée sur GitHub.
+            </p>
+            <input
+              type="password"
+              value={tempApiKey}
+              onChange={(e) => setTempApiKey(e.target.value)}
+              placeholder="Collez votre clé API ici (AIza...)"
+              className="w-full bg-white border border-stone-300 rounded-xl px-4 py-2.5 text-sm text-stone-900 focus:outline-none focus:border-amber-500 mb-4"
+              required
+            />
+            <div className="flex items-center justify-end gap-2">
+              {apiKey && (
+                <button
+                  type="button"
+                  onClick={() => setShowApiKeyModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-medium text-stone-600 hover:bg-stone-200"
+                >
+                  Annuler
+                </button>
+              )}
               <button
-                onClick={() => setRatingModalWork(null)}
-                className="text-stone-400 hover:text-stone-700 text-sm font-medium"
+                type="submit"
+                className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-semibold text-xs transition-colors shadow-sm"
               >
-                Fermer
+                Enregistrer la clé
               </button>
             </div>
+          </form>
+        </div>
+      )}
 
-            <h3 className="text-2xl font-serif font-bold text-stone-900">
-              {ratingModalWork.title}
-            </h3>
-            <p className="text-xs text-stone-500 mt-0.5">
-              {ratingModalWork.creator} ({ratingModalWork.year})
-            </p>
-
-            <p className="text-sm text-stone-700 mt-4">
-              Quelle note attribuez-vous à cette œuvre ? Votre note affinera immédiatement vos prochaines recommandations.
-            </p>
-
+      {/* MODALE NOTATION */}
+      {ratingModalWork && (
+        <div className="fixed inset-0 z-50 bg-stone-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#FAF7F2] border border-stone-300 rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-stone-200 pb-3 mb-4">
+              <span className="text-xs uppercase tracking-widest font-semibold text-amber-800">Carnet Critique</span>
+              <button onClick={() => setRatingModalWork(null)} className="text-stone-400 hover:text-stone-700 text-sm font-medium">Fermer</button>
+            </div>
+            <h3 className="text-2xl font-serif font-bold text-stone-900">{ratingModalWork.title}</h3>
+            <p className="text-xs text-stone-500 mt-0.5">{ratingModalWork.creator} ({ratingModalWork.year})</p>
             <div className="my-6 flex flex-col items-center justify-center bg-white py-5 px-4 rounded-xl border border-stone-200">
               <div className="flex items-center gap-2">
                 {[1, 2, 3, 4, 5].map((star) => (
@@ -1763,33 +1557,13 @@ Structure ta réponse en 3 points concis :
                     onClick={() => handleConfirmConsumed(ratingModalWork, star)}
                     className="p-2 rounded-lg hover:bg-amber-50 transition-all hover:scale-110"
                   >
-                    <Star
-                      className={`w-8 h-8 transition-colors ${
-                        star <= hoverRating
-                          ? 'fill-amber-400 text-amber-500'
-                          : 'text-stone-300'
-                      }`}
-                    />
+                    <Star className={`w-8 h-8 ${star <= hoverRating ? 'fill-amber-400 text-amber-500' : 'text-stone-300'}`} />
                   </button>
                 ))}
               </div>
               <span className="text-xs font-medium text-stone-500 mt-2.5 h-4">
-                {hoverRating === 1 && '1★ — Décevant'}
-                {hoverRating === 2 && '2★ — Mitigé'}
-                {hoverRating === 3 && '3★ — Intéressant'}
-                {hoverRating === 4 && '4★ — Très grande réussite'}
-                {hoverRating === 5 && "5★ — Chef-d'œuvre absolu"}
-                {hoverRating === 0 && 'Cliquez sur une étoile pour enregistrer votre note'}
+                {hoverRating === 5 ? "5★ — Chef-d'œuvre" : hoverRating === 4 ? "4★ — Très grande réussite" : hoverRating === 3 ? "3★ — Intéressant" : hoverRating === 2 ? "2★ — Mitigé" : hoverRating === 1 ? "1★ — Décevant" : "Cliquez sur une étoile"}
               </span>
-            </div>
-
-            <div className="flex justify-end">
-              <button
-                onClick={() => setRatingModalWork(null)}
-                className="px-4 py-2 rounded-xl text-xs font-medium text-stone-600 hover:bg-stone-200/70 transition-colors"
-              >
-                Annuler
-              </button>
             </div>
           </div>
         </div>
@@ -1800,36 +1574,15 @@ Structure ta réponse en 3 points concis :
         <div className="fixed inset-0 z-50 bg-stone-950/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-[#FAF7F2] border border-stone-300 rounded-2xl max-w-lg w-full p-6 shadow-2xl max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between border-b border-stone-200 pb-3 mb-4">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-700" />
-                <span className="text-xs uppercase tracking-widest font-semibold text-amber-800">
-                  Éclairage Critique & Ponts Culturels
-                </span>
-              </div>
-              <button
-                onClick={() => setDeepDiveModalWork(null)}
-                className="text-stone-400 hover:text-stone-700 text-sm font-medium"
-              >
-                Fermer
-              </button>
+              <span className="text-xs uppercase tracking-widest font-semibold text-amber-800">Éclairage Critique</span>
+              <button onClick={() => setDeepDiveModalWork(null)} className="text-stone-400 hover:text-stone-700 text-sm">Fermer</button>
             </div>
-
-            <div className="mb-4">
-              <h3 className="text-2xl font-serif font-bold text-stone-900">
-                {deepDiveModalWork.title}
-              </h3>
-              <p className="text-xs text-stone-500 mt-0.5">
-                {deepDiveModalWork.creator} ({deepDiveModalWork.year}) • {deepDiveModalWork.criticSource}
-              </p>
-            </div>
-
-            <div className="overflow-y-auto pr-1 flex-1">
+            <h3 className="text-2xl font-serif font-bold text-stone-900">{deepDiveModalWork.title}</h3>
+            <div className="overflow-y-auto pr-1 flex-1 my-3">
               {isLoadingDeepDive ? (
                 <div className="py-12 flex flex-col items-center justify-center text-stone-500 gap-3">
                   <Loader2 className="w-7 h-7 animate-spin text-amber-700" />
-                  <p className="text-xs font-medium">
-                    Rédaction de l'analyse critique personnalisée en cours...
-                  </p>
+                  <p className="text-xs font-medium">Analyse critique en cours...</p>
                 </div>
               ) : (
                 <div className="bg-white border border-stone-200 rounded-xl p-4 text-sm text-stone-800 leading-relaxed whitespace-pre-line font-serif">
@@ -1837,77 +1590,27 @@ Structure ta réponse en 3 points concis :
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
 
-            <div className="mt-5 pt-3 border-t border-stone-200 flex justify-end">
-              <button
-                onClick={() => setDeepDiveModalWork(null)}
-                className="px-4 py-2 rounded-xl bg-stone-900 text-white text-xs font-semibold hover:bg-stone-800 transition-colors"
-              >
-                Fermer la fiche critique
-              </button>
+      {/* LIGHTBOX */}
+      {lightboxData && (
+        <div onClick={() => setLightboxData(null)} className="fixed inset-0 z-50 bg-stone-950/85 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out">
+          <div onClick={(e) => e.stopPropagation()} className="relative max-w-3xl w-full flex flex-col items-center cursor-default">
+            <div className="bg-stone-900/60 p-2 rounded-2xl border border-stone-700/80 shadow-2xl">
+              <img src={lightboxData.url} alt={lightboxData.work.title} className="max-h-[75vh] w-auto object-contain rounded-xl" />
             </div>
           </div>
         </div>
       )}
 
-      {/* VISIONNEUSE PLEIN ÉCRAN (LIGHTBOX) */}
-      {lightboxData && (
-        <div
-          onClick={() => setLightboxData(null)}
-          className="fixed inset-0 z-50 bg-stone-950/85 backdrop-blur-md flex items-center justify-center p-4 sm:p-8 cursor-zoom-out animate-in fade-in duration-150"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="relative max-w-3xl w-full flex flex-col items-center cursor-default"
-          >
-            <button
-              onClick={() => setLightboxData(null)}
-              className="self-end mb-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-stone-900/90 text-stone-200 hover:text-white border border-stone-700 text-xs font-semibold transition-colors"
-            >
-              <X className="w-4 h-4" />
-              <span>Fermer l'aperçu</span>
-            </button>
-
-            <div className="bg-stone-900/60 p-2 rounded-2xl border border-stone-700/80 shadow-2xl">
-              <img
-                src={lightboxData.url}
-                alt={lightboxData.work.title}
-                className="max-h-[75vh] w-auto object-contain rounded-xl"
-              />
-            </div>
-
-            <div className="mt-3 text-center">
-              <h4 className="text-lg font-bold text-white">
-                {lightboxData.work.title}{' '}
-                <span className="text-stone-400 font-mono text-sm">
-                  ({lightboxData.work.year})
-                </span>
-              </h4>
-              <p className="text-xs text-stone-300 mt-0.5">
-                {lightboxData.work.creator} • {lightboxData.work.criticSource}
-              </p>
-            </div>
-        </div>
-      </div>
-      )}
-
-      {/* NOTIFICATION TOAST */}
+      {/* TOAST */}
       {toast && (
         <div className="fixed bottom-5 right-5 z-40 bg-stone-900 text-stone-100 px-4 py-3 rounded-xl shadow-xl border border-stone-700 flex items-center gap-3 text-sm">
           <span>{toast.message}</span>
-          {toast.undoAction && (
-            <button
-              onClick={() => {
-                toast.undoAction();
-                setToast(null);
-              }}
-              className="px-2.5 py-1 rounded bg-amber-500 text-stone-950 font-semibold text-xs hover:bg-amber-400 transition-colors"
-            >
-              Annuler
-            </button>
-          )}
         </div>
       )}
-  </div>
+    </div>
   );
 }
