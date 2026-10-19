@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 
 // --- CONFIGURATION API GEMINI ---
-const apiKey = "";
+const apiKey = "AIzaSyDHjZRivgjTAawmDU_3lz9S-omHKDxXwsU";
 const GEMINI_MODEL = "gemini-3-flash-preview";
 
 async function callGeminiAPI(payload, maxRetries = 4) {
