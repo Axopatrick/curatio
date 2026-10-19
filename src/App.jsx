@@ -1276,9 +1276,16 @@ Structure ta réponse en 3 points concis :
                   <h2 className="text-base font-serif font-semibold text-amber-50">
                     Votre curateur culturel personnalisé
                   </h2>
-                  <p className="text-xs sm:text-sm text-stone-300 mt-1">
-                    Notez vos oeuvres dans l'onglet Déja vu/lu/écouté, ou sollicitez votre Curateur pour dénicher de nouvelles pépites :
-                  </p>
+              <p className="text-xs sm:text-sm text-stone-300 mt-1 flex flex-wrap items-center gap-1">
+  <span>Notez vos oeuvres dans l'onglet</span>
+  <button
+    onClick={() => setActiveTab('consumed')}
+    className="text-amber-300 hover:text-amber-200 underline font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
+  >
+    <span>Déjà vu / lu / écouté</span>
+  </button>
+  <span>, ou sollicitez votre Curateur pour dénicher de nouvelles pépites :</span>
+</p>
                 </div>
               </div>
 
