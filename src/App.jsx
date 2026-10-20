@@ -8,7 +8,7 @@ import {
   Download, Upload, Save, Key, ShieldCheck
 } from 'lucide-react';
 
-const GEMINI_MODEL = "gemini-3-flash-preview";
+const GEMINI_MODEL = "gemini-3.8-flash";
 
 async function callGeminiAPI(payload, userApiKey) {
   if (!userApiKey) {
