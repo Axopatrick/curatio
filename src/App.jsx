@@ -10,35 +10,30 @@ import {
 
 const GEMINI_MODEL = "gemini-3-flash-preview";
 
-async function callGeminiAPI(payload, userApiKey, maxRetries = 4) {
+async function callGeminiAPI(payload, userApiKey) {
   if (!userApiKey) {
     throw new Error("Clé API Gemini manquante. Veuillez configurer votre clé dans l'application.");
   }
   const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${userApiKey}`;
-  let delay = 1000;
 
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
 
-      if (!response.ok) {
-        throw new Error(`HTTP status ${response.status}`);
-      }
-
-      const result = await response.json();
-      const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) throw new Error("Réponse vide de l'API");
-      return text;
-    } catch (error) {
-      if (attempt === maxRetries) throw error;
-      await new Promise((resolve) => setTimeout(resolve, delay));
-      delay *= 2;
+  if (!response.ok) {
+    const errorBody = await response.text();
+    if (response.status === 429) {
+      throw new Error("Quota dépassé (429). Patientez une petite minute avant de relancer le Curateur.");
     }
+    throw new Error(`Erreur API (${response.status})`);
   }
+
+  const result = await response.json();
+  const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error("Réponse vide de l'API");
+  return text;
 }
 
 // --- CONFIGURATION DES CATÉGORIES ---
