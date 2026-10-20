@@ -1245,7 +1245,7 @@ Structure ta réponse en 3 points concis :
                   {isGeneratingRecs ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /><span>Consultation critique...</span></>
                   ) : (
-                    <><Wand2 className="w-4 h-4" /><span>Générer 3 œuvres ({selectedCategory === 'all' ? 'Toutes' : getCategoryMeta(selectedCategory).label})</span></>
+                    <><Wand2 className="w-4 h-4" /><span>Générer 6 œuvres ({selectedCategory === 'all' ? 'Toutes' : getCategoryMeta(selectedCategory).label})</span></>
                   )}
                 </button>
               </form>
