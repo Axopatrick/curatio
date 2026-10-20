@@ -874,7 +874,7 @@ export default function App() {
 
       const systemPrompt = `Tu es le conservateur en chef de "CURATIO", une application de curation culturelle française exigeante inspirée des Cahiers du Cinéma, Télérama, Sight & Sound, Pitchfork et Edge. Tu recommandes des œuvres pointues, réelles et acclamées par la critique.`;
 
-      const userPrompt = `Génère exactement 3 nouvelles recommandations d'œuvres culturelles (${targetCat}).
+      const userPrompt = `Génère exactement 6 nouvelles recommandations d'œuvres culturelles (${targetCat}).
 Profil de l'utilisateur :
 - Œuvres adorées (4-5★) : ${loved.length > 0 ? loved.join(', ') : 'Aucune pour le moment'}
 - Tonalités favorites : ${favTags || 'Ouvert à la découverte'}
